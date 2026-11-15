@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ট্রেলারঘর</title>
+<style>
+:root{--bg:#f5f7fb;--card:#fff;--ink:#14213d;--mute:#5b6478;--acc:#1d4ed8;--line:#dfe4ee}
+@media (prefers-color-scheme:dark){:root{--bg:#10131c;--card:#1a1f2d;--ink:#eef1f8;--mute:#9aa4bb;--acc:#7aa2ff;--line:#2a3144}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans Bengali",system-ui,sans-serif}
+header{padding:14px 16px;display:flex;justify-content:space-between;align-items:center}
+h1{margin:0;font-size:22px}
+a{color:var(--acc)}
+input,select,textarea,button{font:inherit;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);width:100%;margin:5px 0}
+button{background:var(--acc);color:#fff;border:0;cursor:pointer}
+button.red{background:#c0392b;width:auto;padding:6px 12px}
+.wrap{padding:0 16px 24px;max-width:900px;margin:auto}
+.tabs{display:flex;gap:8px;overflow-x:auto;padding:8px 0}
+.tabs button{width:auto;flex:none;background:var(--card);color:var(--ink);border:1px solid var(--line)}
+.tabs button.on{background:var(--acc);color:#fff}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+@media(min-width:700px){.grid{grid-template-columns:repeat(4,1fr)}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;text-decoration:none;color:inherit;display:block}
+.th{aspect-ratio:16/10;background:#334155 center/cover;display:flex;align-items:center;justify-content:center;color:#fff;font-size:32px}
+.info{padding:8px 10px;font-size:14px}.info span{color:var(--mute);font-size:12px;display:block}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+.msg{color:var(--mute);padding:20px 0;text-align:center}
+.box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0}
+</style>
+</head>
+<body>
+<header><h1><a href="#" style="text-decoration:none;color:inherit">🎬 ট্রেলারঘর</a></h1><a href="#admin">অ্যাডমিন</a></header>
+<div class="wrap"><div id="adTop"></div><div id="view"></div><div id="adBottom"></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+var SUPABASE_URL="https://qutmjezobbxghieolabw.supabase.co";
+var SUPABASE_KEY="sb_publishable_kr9JyF10WoQnDZNo5oLR9A_tpmJd2r8";
+var db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+var view=document.getElementById("view");
+var cats=["অ্যাকশন","কমেডি","হরর","সাই-ফাই","ড্রামা","অ্যানিমেশন"];
+var all=[],cur="সব",term="";
+
+function el(t,a,txt){var e=document.createElement(t);if(a)for(var k in a)e.setAttribute(k,a[k]);if(txt!=null)e.textContent=txt;return e}
+function inject(box,html){box.innerHTML=html||"";box.querySelectorAll("script").forEach(function(o){var n=document.createElement("script");for(var i=0;i<o.attributes.length;i++)n.setAttribute(o.attributes[i].name,o.attributes[i].value);n.text=o.text;o.replaceWith(n)})}
+function safeUrl(u){return /^https?:\/\//i.test(u)?u:"#"}
+
+async function loadAds(){
+  var r=await db.from("site_settings").select("key,value");
+  if(r.error)return;
+  r.data.forEach(function(x){
+    if(x.key==="ad_top")inject(document.getElementById("adTop"),x.value);
+    if(x.key==="ad_bottom")inject(document.getElementById("adBottom"),x.value);
+  });
+}
+
+async function home(){
+  view.innerHTML="";
+  var q=el("input",{placeholder:"মুভির নাম লিখে খুঁজুন"});q.value=term;
+  var tabs=el("div",{class:"tabs"});
+  var grid=el("div",{class:"grid"});
+  view.append(q,tabs,grid);
+  var r=await db.from("movies").select("*").order("created_at",{ascending:false});
+  if(r.error){grid.replaceWith(el("div",{class:"msg"},"ডেটা আনা যায়নি: "+r.error.message));return}
+  all=r.data;
+  function draw(){
+    tabs.innerHTML="";
+    ["সব"].concat(cats).forEach(function(c){var b=el("button",null,c);if(c===cur)b.className="on";b.onclick=function(){cur=c;draw()};tabs.appendChild(b)});
+    var s=q.value.trim().toLowerCase();
+    var list=all.filter(function(m){return(cur==="সব"||m.category===cur)&&m.title.toLowerCase().indexOf(s)>-1});
+    grid.innerHTML="";
+    if(!list.length){grid.appendChild(el("div",{class:"msg"},"কোনো মুভি পাওয়া যায়নি"));return}
+    list.forEach(function(m){
+      var a=el("a",{class:"card",href:safeUrl(m.youtube_url),target:"_blank",rel:"noopener"});
+      var th=el("div",{class:"th"},m.poster_url?"":"▶");
+      if(m.poster_url&&/^https?:\/\//i.test(m.poster_url))th.style.backgroundImage="url('"+encodeURI(m.poster_url)+"')";
+      var info=el("div",{class:"info"});info.appendChild(el("b",null,m.title));info.appendChild(el("span",null,m.category+(m.year?" · "+m.year:"")));
+      a.append(th,info);grid.appendChild(a);
+    });
+  }
+  q.oninput=function(){term=q.value;draw()};
+  draw();
+}
+
+async function admin(){
+  view.innerHTML="";
+  var s=await db.auth.getSession();
+  if(!s.data.session){
+    var b=el("div",{class:"box"});
+    var em=el("input",{type:"email",placeholder:"ইমেইল"});
+    var pw=el("input",{type:"password",placeholder:"পাসওয়ার্ড"});
+    var bt=el("button",null,"লগইন");var ms=el("div",{class:"msg"});
+    bt.onclick=async function(){
+      var r=await db.auth.signInWithPassword({email:em.value.trim(),password:pw.value});
+      if(r.error){ms.textContent="লগইন হয়নি: "+r.error.message}else admin();
+    };
+    b.append(el("h3",null,"অ্যাডমিন লগইন"),em,pw,bt,ms);view.appendChild(b);return;
+  }
+  var add=el("div",{class:"box"});
+  var t=el("input",{placeholder:"মুভির নাম"});
+  var c=el("select");cats.forEach(function(x){c.appendChild(el("option",null,x))});
+  var y=el("input",{placeholder:"সাল (যেমন 2019)",type:"number"});
+  var u=el("input",{placeholder:"YouTube ট্রেলারের লিংক"});
+  var p=el("input",{placeholder:"পোস্টারের ছবির লিংক (ঐচ্ছিক)"});
+  var sv=el("button",null,"মুভি যোগ করুন");var am=el("div",{class:"msg"});
+  sv.onclick=async function(){
+    if(!t.value.trim()||!/^https?:\/\//i.test(u.value.trim())){am.textContent="নাম আর সঠিক লিংক দিন";return}
+    var r=await db.from("movies").insert({title:t.value.trim(),category:c.value,year:y.value?+y.value:null,youtube_url:u.value.trim(),poster_url:p.value.trim()||null});
+    if(r.error){am.textContent="সেভ হয়নি: "+r.error.message}else admin();
+  };
+  add.append(el("h3",null,"নতুন মুভি"),t,c,y,u,p,sv,am);
+
+  var ads=el("div",{class:"box"});
+  var at=el("textarea",{rows:"4",placeholder:"ওপরের বিজ্ঞাপনের কোড"});
+  var ab=el("textarea",{rows:"4",placeholder:"নিচের বিজ্ঞাপনের কোড"});
+  var as=el("button",null,"বিজ্ঞাপন সেভ করুন");var asm=el("div",{class:"msg"});
+  var ar=await db.from("site_settings").select("key,value");
+  if(!ar.error)ar.data.forEach(function(x){if(x.key==="ad_top")at.value=x.value||"";if(x.key==="ad_bottom")ab.value=x.value||""});
+  as.onclick=async function(){
+    var r=await db.from("site_settings").upsert([{key:"ad_top",value:at.value},{key:"ad_bottom",value:ab.value}]);
+    asm.textContent=r.error?"সেভ হয়নি: "+r.error.message:"সেভ হয়েছে ✔";
+  };
+  ads.append(el("h3",null,"বিজ্ঞাপনের কোড"),at,ab,as,asm);
+
+  var list=el("div",{class:"box"});list.appendChild(el("h3",null,"সব মুভি"));
+  var mr=await db.from("movies").select("id,title").order("created_at",{ascending:false});
+  if(!mr.error)mr.data.forEach(function(m){
+    var row=el("div",{class:"row"});row.appendChild(el("span",null,m.title));
+    var d=el("button",{class:"red"},"মুছুন");
+    d.onclick=async function(){if(confirm("মুছে ফেলবেন?")){await db.from("movies").delete().eq("id",m.id);admin()}};
+    row.appendChild(d);list.appendChild(row);
+  });
+  var lo=el("button",null,"লগআউট");lo.onclick=async function(){await db.auth.signOut();admin()};
+  view.append(add,ads,list,lo);
+}
+
+function route(){location.hash==="#admin"?admin():home()}
+window.addEventListener("hashchange",route);
+loadAds();route();
+</script>
+</body>
+</html>
